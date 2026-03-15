@@ -5,8 +5,17 @@ import plotly.graph_objects as go
 from PIL import Image
 import os
 import io
+import base64
 import zipfile
 from data_processor import process_directory, process_file_like
+
+def get_image_base64(img):
+    buffered = io.BytesIO()
+    # Convert to RGB if necessary (e.g. for RGBA png to jpg, or just to be safe)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    img.save(buffered, format="JPEG", quality=80)
+    return "data:image/jpeg;base64," + base64.b64encode(buffered.getvalue()).decode()
 
 st.set_page_config(page_title="LILA Player Journey Visualization", layout="wide")
 
@@ -245,11 +254,13 @@ else:
         ))
 
 # Add the minimap as a background image
-# In Plotly, y=0 is bottom. Our formula (pixel_y = (1-v)*1024) expects 0 to be at the TOP.
-# So we place image at y=0, anchor it to bottom, and invert the Y-axis range to [1024, 0].
+# In Plotly, y=0 is bottom by default. But we use yaxis range [1024, 0] (reversed).
+# So 0 is the TOP of the plot. We want the image TOP to be at y=0.
+img_base64 = get_image_base64(img)
+
 fig.add_layout_image(
     dict(
-        source=img,
+        source=img_base64,
         xref="x",
         yref="y",
         x=0,
@@ -257,7 +268,7 @@ fig.add_layout_image(
         sizex=1024,
         sizey=1024,
         xanchor="left",
-        yanchor="bottom",
+        yanchor="top",
         sizing="stretch",
         opacity=1,
         layer="below")
