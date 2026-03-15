@@ -179,7 +179,7 @@ show_heatmap = st.sidebar.toggle("🔥 Show Density Heatmap", value=False)
 st.sidebar.markdown("---")
 
 # Map CDN Mapping (GitHub Raw CDN)
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/aragya1/Lila_assignment/main/player_data/minimaps/"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/aragya1/Lila_assignment/master/player_data/minimaps/"
 MAP_CDN_URLS = {
     'AmbroseValley': f"{GITHUB_RAW_BASE}AmbroseValley_Minimap.png",
     'GrandRift':     f"{GITHUB_RAW_BASE}GrandRift_Minimap.png",
