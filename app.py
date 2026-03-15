@@ -113,6 +113,9 @@ show_deaths = st.sidebar.checkbox("Deaths", value=True)
 show_loot = st.sidebar.checkbox("Loot Drops/Pickups", value=True)
 show_storm = st.sidebar.checkbox("Storm Deaths", value=True)
 
+# Heatmap Toggle
+show_heatmap = st.sidebar.toggle("🔥 Show Density Heatmap", value=False)
+
 # Timeline Slider in Sidebar
 st.sidebar.header("⏳ Match Playback")
 if not match_df.empty:
