@@ -113,6 +113,29 @@ else:
     selected_match = st.sidebar.selectbox("Select Match", matches)
     match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
 
+# --- Timeline Slider (Moved Up) ---
+st.sidebar.markdown("---")
+st.sidebar.header("⏳ Match Playback")
+if not match_df.empty:
+    # Ensure we have match_time_sec
+    if 'match_time_sec' not in match_df.columns and not match_df.empty:
+        match_df['ts'] = pd.to_datetime(match_df['ts'])
+        match_df['match_time_sec'] = (match_df['ts'] - match_df['ts'].min()).dt.total_seconds()
+    
+    max_time = float(match_df['match_time_sec'].max())
+    if max_time > 0:
+        current_time = st.sidebar.slider(
+            "Time (seconds)", 
+            min_value=0.0, 
+            max_value=max_time, 
+            value=max_time,
+            step=1.0
+        )
+        match_df = match_df[match_df['match_time_sec'] <= current_time]
+    else:
+        st.sidebar.info("Single event match (no duration).")
+st.sidebar.markdown("---")
+
 # Sidebar - Event Toggles
 st.sidebar.header("🎯 Events to Display")
 show_human_pos = st.sidebar.checkbox("Human Positions", value=True)
@@ -124,16 +147,7 @@ show_storm = st.sidebar.checkbox("Storm Deaths", value=True)
 
 # Heatmap Toggle
 show_heatmap = st.sidebar.toggle("🔥 Show Density Heatmap", value=False)
-
-# Timeline Slider in Sidebar
-st.sidebar.header("⏳ Match Playback")
-if not match_df.empty:
-    max_time = int(match_df['match_time_sec'].max())
-    if max_time > 0:
-        current_time = st.sidebar.slider("Match Timeline (seconds)", 0, max_time, max_time)
-        match_df = match_df[match_df['match_time_sec'] <= current_time]
-    else:
-        st.sidebar.info("This match has only one timestamp.")
+st.sidebar.markdown("---")
 
 # Load Minimap Image
 image_path = f"player_data/minimaps/{selected_map}_Minimap.png"
