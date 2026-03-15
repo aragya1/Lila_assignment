@@ -160,7 +160,8 @@ if show_heatmap:
             reversescale=False,
             opacity=0.6,
             ncontours=20,
-            showscale=False
+            showscale=False,
+            hovertemplate="<b>Density</b>: %{z} events<br><b>X</b>: %{x:.0f}<br><b>Y</b>: %{y:.0f}<extra></extra>"
         ))
 
 else:
