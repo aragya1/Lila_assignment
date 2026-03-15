@@ -113,15 +113,15 @@ show_deaths = st.sidebar.checkbox("Deaths", value=True)
 show_loot = st.sidebar.checkbox("Loot Drops/Pickups", value=True)
 show_storm = st.sidebar.checkbox("Storm Deaths", value=True)
 
-# Heatmap Toggle
-show_heatmap = st.sidebar.toggle("🔥 Show Density Heatmap", value=False)
-
-# Timeline Slider
+# Timeline Slider in Sidebar
+st.sidebar.header("⏳ Match Playback")
 if not match_df.empty:
     max_time = int(match_df['match_time_sec'].max())
     if max_time > 0:
-        current_time = st.slider("Match Timeline (seconds)", 0, max_time, max_time)
+        current_time = st.sidebar.slider("Match Timeline (seconds)", 0, max_time, max_time)
         match_df = match_df[match_df['match_time_sec'] <= current_time]
+    else:
+        st.sidebar.info("This match has only one timestamp.")
 
 # Load Minimap Image
 image_path = f"player_data/minimaps/{selected_map}_Minimap.png"
@@ -242,24 +242,28 @@ else:
         ))
 
 # Add the minimap as a background image
+# In Plotly, y=0 is bottom. Our formula (pixel_y = (1-v)*1024) expects 0 to be at the TOP.
+# So we place image at y=0, anchor it to bottom, and invert the Y-axis range to [1024, 0].
 fig.add_layout_image(
     dict(
         source=img,
         xref="x",
         yref="y",
         x=0,
-        y=1024, # Plotly Y-axis starts from bottom, but standard images are top-left
+        y=0,
         sizex=1024,
         sizey=1024,
+        xanchor="left",
+        yanchor="bottom",
         sizing="stretch",
         opacity=1,
         layer="below")
 )
 
-# Update layout to match image dimensions and hide axes
+# Update layout: Range [0, 1024] for X, but [1024, 0] for Y to put 0 at the top.
 fig.update_layout(
     xaxis=dict(showgrid=False, range=[0, 1024], visible=False),
-    yaxis=dict(showgrid=False, range=[0, 1024], scaleanchor="x", scaleratio=1, visible=False),
+    yaxis=dict(showgrid=False, range=[1024, 0], scaleanchor="x", scaleratio=1, visible=False),
     width=800,
     height=800,
     margin=dict(l=0, r=0, t=0, b=0),
