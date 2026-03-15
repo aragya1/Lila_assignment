@@ -33,16 +33,19 @@ The `Lockdown` map saw only a third of that playtime (21,238 total events), yet 
 
 ---
 
-## Insight 3: Severe Underutilization of 'GrandRift'
+## Insight 4: Severe Under-population — Most matches are solitary
 **What caught my eye in the data:**
-The `GrandRift` map has extremely low engagement compared to the other two maps.
+The vast majority of matches are effectively empty, with only a single human or bot recorded.
 
 **Back it up:**
-Out of the 89,000 total events, `AmbroseValley` accounts for ~68% of the data (61k events) and `Lockdown` accounts for ~24% (21k). `GrandRift` only accounts for **~7.6% (6,853 events)**. 
+Across 796 unique matches recorded over 5 days:
+- **743 matches (93%)** had only **1 participant**.
+- The **Average participants per match** is only **1.56**.
+- Even the **Max participants** seen was only **16** (in an extraction shooter that likely supports 50-100).
 
 **Actionable Takeaways:**
-- **Metrics affected:** Map Selection Rate, Matchmaking Queue Times.
-- **Actionable items:**
-  - If map selection is player-chosen, investigate why players are avoiding GrandRift (e.g., poor loot distribution, unpopular aesthetic, or performance issues).
-  - If map selection is random (rotation), check the matchmaking server logic to ensure GrandRift is actually weighted correctly in the queue.
-- **Why a level designer should care:** Significant development time goes into creating a map. If a map is being skipped or matches on it end extremely fast (resulting in fewer events), the map design needs an overhaul to make it as compelling as Ambrose Valley.
+- **Metrics affected:** Matchmaking Efficiency, Player Engagement, Server Costs (running many instances for 1 player is inefficient).
+- **Actionable items:** 
+  - Investigate the matchmaking "bucket" logic; why are so many matches starting with only one player instead of waiting to fill?
+  - Consider a "match start delay" or a minimum player threshold before spawning the instance.
+- **Why a level designer should care:** A map's layout and chokepoints only "work" when there is a critical mass of players interacting. If 93% of matches are solo, the map feels like an empty walking simulator, and the carefully designed level geometry is never truly tested by combat or tactical positioning.
