@@ -69,25 +69,45 @@ if df.empty:
     st.warning("No data loaded. Please upload data or ensure the player_data folder exists.")
     st.stop()
 
-# 1. Map Filter
-maps = sorted(df['map_id'].dropna().unique())
-selected_map = st.sidebar.selectbox("Select Map", maps)
-filtered_df = df[df['map_id'] == selected_map]
+# 0. Global Match Search
+st.sidebar.markdown("---")
+search_query = st.sidebar.text_input("Search by Match ID", placeholder="Enter full or partial ID...")
 
-# 2. Date Filter
-dates = sorted(filtered_df['date'].dropna().unique())
-selected_date = st.sidebar.selectbox("Select Date", dates)
-filtered_df = filtered_df[filtered_df['date'] == selected_date]
+if search_query:
+    # Find all matches matching the query
+    matching_matches = df[df['match_id'].str.contains(search_query, case=False, na=False)]['match_id'].unique()
+    
+    if len(matching_matches) > 0:
+        selected_match = st.sidebar.selectbox("Matching Results", sorted(matching_matches))
+        match_df = df[df['match_id'] == selected_match].copy()
+        # Automatically detect map and date for the found match
+        selected_map = match_df['map_id'].iloc[0]
+        selected_date = match_df['date'].iloc[0]
+        st.sidebar.info(f"Found match on **{selected_map}** ({selected_date})")
+    else:
+        st.sidebar.error("No match found for that ID.")
+        st.stop()
+else:
+    # Standard Step-by-Step Filters
+    # 1. Map Filter
+    maps = sorted(df['map_id'].dropna().unique())
+    selected_map = st.sidebar.selectbox("Select Map", maps)
+    filtered_df = df[df['map_id'] == selected_map]
 
-# 3. Match Filter
-matches = sorted(filtered_df['match_id'].dropna().unique())
-selected_match = st.sidebar.selectbox("Select Match", matches)
-match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
+    # 2. Date Filter
+    dates = sorted(filtered_df['date'].dropna().unique())
+    selected_date = st.sidebar.selectbox("Select Date", dates)
+    filtered_df = filtered_df[filtered_df['date'] == selected_date]
+
+    # 3. Match Filter
+    matches = sorted(filtered_df['match_id'].dropna().unique())
+    selected_match = st.sidebar.selectbox("Select Match", matches)
+    match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
 
 # Sidebar - Event Toggles
 st.sidebar.header("🎯 Events to Display")
 show_human_pos = st.sidebar.checkbox("Human Positions", value=True)
-show_bot_pos = st.sidebar.checkbox("Bot Positions", value=False)
+show_bot_pos = st.sidebar.checkbox("Bot Positions", value=True)
 show_kills = st.sidebar.checkbox("Kills (Human vs Human & Bot)", value=True)
 show_deaths = st.sidebar.checkbox("Deaths", value=True)
 show_loot = st.sidebar.checkbox("Loot Drops/Pickups", value=True)
