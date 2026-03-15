@@ -7,14 +7,13 @@ import os
 import io
 import base64
 import zipfile
+import time
 from data_processor import process_directory, process_file_like
 
 def get_image_base64(img):
     buffered = io.BytesIO()
-    # Convert to RGB if necessary (e.g. for RGBA png to jpg, or just to be safe)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    img.save(buffered, format="JPEG", quality=80)
+    # Convert to RGB and compress as high-quality JPEG to keep it sharp but much smaller than PNG
+    img.convert("RGB").save(buffered, format="JPEG", quality=85)
     return "data:image/jpeg;base64," + base64.b64encode(buffered.getvalue()).decode()
 
 st.set_page_config(page_title="LILA Player Journey Visualization", layout="wide")
@@ -64,7 +63,8 @@ if uploaded_files and st.sidebar.button("Process Uploaded Files"):
             new_df = pd.concat(new_frames, ignore_index=True)
             # Recalculate relative time for the new matches
             if 'ts' in new_df.columns:
-                new_df['ts'] = pd.to_datetime(new_df['ts'])
+                # Fix timestamp interpretation (seconds read as milliseconds)
+                new_df['ts'] = pd.to_datetime(pd.to_datetime(new_df['ts']).astype('int64'), unit='s')
                 new_df['match_time_sec'] = new_df.groupby('match_id')['ts'].transform(lambda x: (x - x.min()).dt.total_seconds())
             
             st.session_state.df = pd.concat([st.session_state.df, new_df], ignore_index=True)
@@ -122,11 +122,42 @@ if not match_df.empty:
     st.sidebar.write(f"Match Duration: {max_time:.1f}s | Events: {len(match_df)}")
     
     if max_time > 0:
-        current_time = st.sidebar.slider(
+        # Initialize playback state
+        if 'playback_time' not in st.session_state:
+            st.session_state.playback_time = max_time
+        if 'playing' not in st.session_state:
+            st.session_state.playing = False
+        if 'last_play_time' not in st.session_state:
+            st.session_state.last_play_time = None
+
+        # Playback Controls
+        col1, col2 = st.sidebar.columns(2)
+        
+        # Play / Pause Toggle
+        play_label = "⏸️ Pause" if st.session_state.playing else "▶️ Play"
+        if col1.button(play_label):
+            # If we are at the end, restart automatically
+            if not st.session_state.playing and st.session_state.playback_time >= max_time:
+                st.session_state.playback_time = 0.0
+            
+            st.session_state.playing = not st.session_state.playing
+            if st.session_state.playing:
+                st.session_state.last_play_time = time.time()
+            st.rerun()
+
+        # Restart Button
+        if col2.button("🔄 Restart"):
+            st.session_state.playback_time = 0.0
+            st.session_state.playing = True
+            st.session_state.last_play_time = time.time()
+            st.rerun()
+
+        # The Slider
+        st.session_state.playback_time = st.sidebar.slider(
             "Time (seconds)", 
-            0.0, max_time, max_time, 1.0
+            0.0, max_time, st.session_state.playback_time, 1.0
         )
-        match_df = match_df[match_df['match_time_sec'] <= current_time]
+        match_df = match_df[match_df['match_time_sec'] <= st.session_state.playback_time]
     else:
         st.sidebar.info("Static match (no movement).")
 else:
@@ -147,16 +178,13 @@ show_storm = st.sidebar.checkbox("Storm Deaths", value=True)
 show_heatmap = st.sidebar.toggle("🔥 Show Density Heatmap", value=False)
 st.sidebar.markdown("---")
 
-# Load Minimap Image
-image_path = f"player_data/minimaps/{selected_map}_Minimap.png"
-if not os.path.exists(image_path):
-    image_path = f"player_data/minimaps/{selected_map}_Minimap.jpg"
-
-try:
-    img = Image.open(image_path)
-except Exception as e:
-    st.error(f"Could not load minimap image for {selected_map}. Expected at {image_path}")
-    st.stop()
+# Map CDN Mapping (GitHub Raw CDN)
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/aragya1/Lila_assignment/main/player_data/minimaps/"
+MAP_CDN_URLS = {
+    'AmbroseValley': f"{GITHUB_RAW_BASE}AmbroseValley_Minimap.png",
+    'GrandRift':     f"{GITHUB_RAW_BASE}GrandRift_Minimap.png",
+    'Lockdown':      f"{GITHUB_RAW_BASE}Lockdown_Minimap.jpg"
+}
 
 # Visualization
 st.subheader(f"Match Analysis: {selected_map}")
@@ -265,14 +293,10 @@ else:
             hovertext="Storm death: " + storm['user_id'].astype(str)
         ))
 
-# Add the minimap as a background image
-# In Plotly, y=0 is bottom by default. But we use yaxis range [1024, 0] (reversed).
-# So 0 is the TOP of the plot. We want the image TOP to be at y=0.
-img_base64 = get_image_base64(img)
-
+# Add the high-res background via GitHub CDN (Browser will cache this!)
 fig.add_layout_image(
     dict(
-        source=img_base64,
+        source=MAP_CDN_URLS.get(selected_map, ""),
         xref="x",
         yref="y",
         x=0,
@@ -301,3 +325,27 @@ st.plotly_chart(fig, use_container_width=True)
 # Data Table below map
 with st.expander("View Raw Data for this Match"):
     st.dataframe(match_df[['ts', 'match_time_sec', 'user_id', 'is_bot', 'event', 'x', 'y', 'z', 'pixel_x', 'pixel_y']].sort_values('ts'))
+
+# Real-time Playback Loop (Executed AFTER rendering)
+if 'playing' in st.session_state and st.session_state.playing:
+    if st.session_state.playback_time < max_time:
+        # Calculate real-time elapsed since last run
+        now = time.time()
+        if st.session_state.last_play_time is not None:
+            delta = now - st.session_state.last_play_time
+            # Increment playback time by the real-time delta
+            st.session_state.playback_time = min(st.session_state.playback_time + delta, max_time)
+        
+        st.session_state.last_play_time = now
+        
+        # Check if we reached the end
+        if st.session_state.playback_time >= max_time:
+            st.session_state.playing = False
+            st.session_state.last_play_time = None
+        
+        # Short pause to prevent CPU pegging, then rerun to update UI
+        time.sleep(0.05)
+        st.rerun()
+    else:
+        st.session_state.playing = False
+        st.session_state.last_play_time = None

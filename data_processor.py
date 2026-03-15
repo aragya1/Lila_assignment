@@ -79,7 +79,11 @@ def process_directory(base_dir):
     full_df = pd.concat(frames, ignore_index=True)
     
     # Convert timestamp and calculate relative match time
-    full_df['ts'] = pd.to_datetime(full_df['ts'])
+    # The data is stored with unit='s' but read as 'ms', making 2026 timestamps look like 1970.
+    # We fix this by treating the read integers as seconds.
+    full_df['ts'] = pd.to_datetime(pd.to_datetime(full_df['ts']).astype('int64'), unit='s')
+    
+    # Calculate relative match time (now correctly in seconds)
     full_df['match_time_sec'] = full_df.groupby('match_id')['ts'].transform(lambda x: (x - x.min()).dt.total_seconds())
     
     return full_df

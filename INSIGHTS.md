@@ -33,7 +33,7 @@ The `Lockdown` map saw only a third of that playtime (21,238 total events), yet 
 
 ---
 
-## Insight 4: Severe Under-population — Most matches are solitary
+## Insight 3: Severe Under-population — Most matches are solitary
 **What caught my eye in the data:**
 The vast majority of matches are effectively empty, with only a single human or bot recorded.
 
