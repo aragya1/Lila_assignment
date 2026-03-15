@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.log
+*.html
+.streamlit/
+check_logic.py
+plotly_animation_test.py
+plotly_cumulative_animation.py
+.DS_Store
