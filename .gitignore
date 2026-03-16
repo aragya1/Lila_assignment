@@ -6,5 +6,3 @@ __pycache__/
 .DS_Store
 *.xlsx
 *.pdf
-player_data/
-static/minimaps/*_optimized.jpg
