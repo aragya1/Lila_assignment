@@ -6,7 +6,7 @@ This tool provides an interactive, web-based visualization of player telemetry d
 
 ## Features
 - **Dynamic Uploads:** Upload new `.nakama-0` parquet files or `.zip` archives directly from the browser.
-- **Interactive Timeline:** Scrub through a match to see events unfold over time.
+- **Interactive Timeline:** Scrub through a match to see events unfold over time, with speed control settings and +- 10 second
 - **Filtering:** Isolate data by Map, Date, and Match ID.
 - **Heatmaps:** Toggle density heatmaps to identify high-traffic areas and kill zones.
 - **Visual Clarity:** Distinct markers for Kills, Deaths, Loot, and Storm deaths. Differentiated paths for Humans vs. Bots.
