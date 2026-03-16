@@ -174,17 +174,59 @@ show_deaths = st.sidebar.checkbox("Deaths", value=True)
 show_loot = st.sidebar.checkbox("Loot Drops/Pickups", value=True)
 show_storm = st.sidebar.checkbox("Storm Deaths", value=True)
 
-# Heatmap Toggle
-show_heatmap = st.sidebar.toggle("🔥 Show Density Heatmap", value=False)
+# Heatmap & Autofocus Toggles
+col_a, col_b = st.sidebar.columns(2)
+show_heatmap = col_a.toggle("🔥 Heatmap", value=False)
+show_autofocus = col_b.toggle("🎥 Autofocus", value=False, help="Automatically zoom to follow active players.")
 st.sidebar.markdown("---")
 
-# Map CDN Mapping (GitHub Raw CDN)
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/aragya1/Lila_assignment/master/player_data/minimaps/"
-MAP_CDN_URLS = {
-    'AmbroseValley': f"{GITHUB_RAW_BASE}AmbroseValley_Minimap.png",
-    'GrandRift':     f"{GITHUB_RAW_BASE}GrandRift_Minimap.png",
-    'Lockdown':      f"{GITHUB_RAW_BASE}Lockdown_Minimap.jpg"
+# --- Viewport Logic (Persistence & Autofocus) ---
+if 'current_match_id' not in st.session_state or st.session_state.current_match_id != selected_match:
+    st.session_state.current_match_id = selected_match
+    st.session_state.map_x_range = [0, 1024]
+    st.session_state.map_y_range = [1024, 0]
+
+if show_autofocus and not match_df.empty:
+    # Find most recent positions of all active entities to define the viewport
+    recent_human = match_df[(match_df['event'] == 'Position') & (~match_df['is_bot'])].sort_values('ts').groupby('user_id').last()
+    recent_bot = match_df[(match_df['event'] == 'BotPosition') & (match_df['is_bot'])].sort_values('ts').groupby('user_id').last()
+    
+    active_entities = pd.concat([recent_human, recent_bot])
+    
+    if not active_entities.empty:
+        # Calculate bounding box with padding
+        pad = 150
+        min_x, max_x = active_entities['pixel_x'].min(), active_entities['pixel_x'].max()
+        min_y, max_y = active_entities['pixel_y'].min(), active_entities['pixel_y'].max()
+        
+        # Apply padding and clamp to map bounds [0, 1024]
+        st.session_state.map_x_range = [max(0, min_x - pad), min(1024, max_x + pad)]
+        # Y is inverted in our coordinate system (0 is top)
+        st.session_state.map_y_range = [min(1024, max_y + pad), max(0, min_y - pad)]
+elif not show_autofocus and not st.session_state.playing:
+    # If stopped and not autofocusing, reset to full map (optional, but good for UX)
+    # st.session_state.map_x_range = [0, 1024]
+    # st.session_state.map_y_range = [1024, 0]
+    pass
+
+# Map Static Mapping (Optimized Local Files)
+MAP_OPTIMIZED_PATHS = {
+    'AmbroseValley': "static/minimaps/AmbroseValley_optimized.jpg",
+    'GrandRift':     "static/minimaps/GrandRift_optimized.jpg",
+    'Lockdown':      "static/minimaps/Lockdown_optimized.jpg"
 }
+
+# Resolve Map Source (Pre-loaded for Plotly)
+map_source = ""
+local_path = MAP_OPTIMIZED_PATHS.get(selected_map, "")
+if os.path.exists(local_path):
+    try:
+        img = Image.open(local_path)
+        map_source = get_image_base64(img)
+    except Exception:
+        map_source = ""
+else:
+    map_source = ""
 
 # Visualization
 st.subheader(f"Match Analysis: {selected_map}")
@@ -192,8 +234,9 @@ st.text(f"Match ID: {selected_match}")
 
 fig = go.Figure()
 
+# --- Layer 1: Density Heatmap (Optional Overlay) ---
 if show_heatmap:
-    # Build Heatmap
+    # Build Heatmap based on currently enabled toggles
     events_for_heatmap = []
     if show_kills: events_for_heatmap.extend(['Kill', 'BotKill'])
     if show_deaths: events_for_heatmap.extend(['Killed', 'BotKilled'])
@@ -210,93 +253,121 @@ if show_heatmap:
             y=heat_df['pixel_y'],
             colorscale='Hot',
             reversescale=False,
-            opacity=0.6,
+            opacity=0.4, # Lower opacity so paths are visible underneath
             ncontours=20,
             showscale=False,
             hovertemplate="<b>Density</b>: %{z} events<br><b>X</b>: %{x:.0f}<br><b>Y</b>: %{y:.0f}<extra></extra>"
         ))
 
-else:
-    # Build Scatter Points & Traces
+# --- Layer 2: Player Paths & Event Markers ---
+# 1. Human Paths
+if show_human_pos:
+    human_pos = match_df[(match_df['event'] == 'Position') & (~match_df['is_bot'])]
+    uids = human_pos['user_id'].unique()
+    colors = px.colors.qualitative.Plotly
     
-    # 1. Human Paths
-    if show_human_pos:
-        human_pos = match_df[(match_df['event'] == 'Position') & (~match_df['is_bot'])]
-        for user_id, group in human_pos.groupby('user_id'):
-            fig.add_trace(go.Scatter(
-                x=group['pixel_x'], y=group['pixel_y'],
-                mode='lines+markers',
-                name=f"Human Path ({str(user_id)[:6]})",
-                line=dict(color='rgba(0, 200, 255, 0.5)', width=2),
-                marker=dict(size=4, color='rgba(0, 200, 255, 0.5)'),
-                hoverinfo='text',
-                text=f"Human: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s",
-                showlegend=False
-            ))
+    for i, user_id in enumerate(uids):
+        group = human_pos[human_pos['user_id'] == user_id]
+        if group.empty: continue
+        color = colors[i % len(colors)]
+        
+        # The Path
+        fig.add_trace(go.Scatter(
+            x=group['pixel_x'], y=group['pixel_y'],
+            mode='lines',
+            name=f"Human: {str(user_id)[:6]}",
+            line=dict(color=color, width=3),
+            hoverinfo='text',
+            text=f"Human: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s"
+        ))
+        
+        # Start/End Markers
+        fig.add_trace(go.Scatter(
+            x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
+            y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
+            mode='markers',
+            name=f"Start/End: {str(user_id)[:6]}",
+            marker=dict(symbol=['triangle-right', 'square'], size=[15, 12], color=['lime', 'red'], line=dict(width=1, color='black')),
+            showlegend=False
+        ))
+        
+# 2. Bot Paths
+if show_bot_pos:
+    bot_pos = match_df[(match_df['event'] == 'BotPosition') & (match_df['is_bot'])]
+    bot_uids = bot_pos['user_id'].unique()
+    bot_colors = px.colors.qualitative.Pastel
+    
+    for i, user_id in enumerate(bot_uids):
+        group = bot_pos[bot_pos['user_id'] == user_id]
+        if group.empty: continue
+        color = bot_colors[i % len(bot_colors)]
+        
+        fig.add_trace(go.Scatter(
+            x=group['pixel_x'], y=group['pixel_y'],
+            mode='lines',
+            name=f"Bot: {user_id}",
+            line=dict(color=color, width=2, dash='dot'),
+            hoverinfo='text',
+            text=f"Bot: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s"
+        ))
+        
+        # Start/End for bots
+        fig.add_trace(go.Scatter(
+            x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
+            y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
+            mode='markers',
+            marker=dict(symbol=['triangle-right', 'square'], size=[10, 8], color=['lime', 'red']),
+            showlegend=False
+        ))
             
-    # 2. Bot Paths
-    if show_bot_pos:
-        bot_pos = match_df[(match_df['event'] == 'BotPosition') & (match_df['is_bot'])]
-        for user_id, group in bot_pos.groupby('user_id'):
-            fig.add_trace(go.Scatter(
-                x=group['pixel_x'], y=group['pixel_y'],
-                mode='lines+markers',
-                name=f"Bot Path ({user_id})",
-                line=dict(color='rgba(255, 100, 0, 0.5)', width=2),
-                marker=dict(size=4, color='rgba(255, 100, 0, 0.5)'),
-                hoverinfo='text',
-                text=f"Bot: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s",
-                showlegend=False
-            ))
-            
-    # 3. Kills
-    if show_kills:
-        kills = match_df[match_df['event'].isin(['Kill', 'BotKill'])]
-        fig.add_trace(go.Scatter(
-            x=kills['pixel_x'], y=kills['pixel_y'],
-            mode='markers',
-            name="Kills",
-            marker=dict(symbol='cross', size=12, color='green', line=dict(width=1, color='white')),
-            hovertext=kills['event'] + " by " + kills['user_id'].astype(str)
-        ))
+# 3. Kills
+if show_kills:
+    kills = match_df[match_df['event'].isin(['Kill', 'BotKill'])]
+    fig.add_trace(go.Scatter(
+        x=kills['pixel_x'], y=kills['pixel_y'],
+        mode='markers',
+        name="Kills",
+        marker=dict(symbol='cross', size=12, color='green', line=dict(width=1, color='white')),
+        hovertext=kills['event'] + " by " + kills['user_id'].astype(str)
+    ))
 
-    # 4. Deaths
-    if show_deaths:
-        deaths = match_df[match_df['event'].isin(['Killed', 'BotKilled'])]
-        fig.add_trace(go.Scatter(
-            x=deaths['pixel_x'], y=deaths['pixel_y'],
-            mode='markers',
-            name="Deaths",
-            marker=dict(symbol='x', size=12, color='red', line=dict(width=1, color='white')),
-            hovertext=deaths['event'] + " of " + deaths['user_id'].astype(str)
-        ))
+# 4. Deaths
+if show_deaths:
+    deaths = match_df[match_df['event'].isin(['Killed', 'BotKilled'])]
+    fig.add_trace(go.Scatter(
+        x=deaths['pixel_x'], y=deaths['pixel_y'],
+        mode='markers',
+        name="Deaths",
+        marker=dict(symbol='x', size=12, color='red', line=dict(width=1, color='white')),
+        hovertext=deaths['event'] + " of " + deaths['user_id'].astype(str)
+    ))
 
-    # 5. Loot
-    if show_loot:
-        loot = match_df[match_df['event'] == 'Loot']
-        fig.add_trace(go.Scatter(
-            x=loot['pixel_x'], y=loot['pixel_y'],
-            mode='markers',
-            name="Loot",
-            marker=dict(symbol='diamond', size=10, color='yellow', line=dict(width=1, color='black')),
-            hovertext="Looted by " + loot['user_id'].astype(str)
-        ))
+# 5. Loot
+if show_loot:
+    loot = match_df[match_df['event'] == 'Loot']
+    fig.add_trace(go.Scatter(
+        x=loot['pixel_x'], y=loot['pixel_y'],
+        mode='markers',
+        name="Loot",
+        marker=dict(symbol='diamond', size=10, color='yellow', line=dict(width=1, color='black')),
+        hovertext="Looted by " + loot['user_id'].astype(str)
+    ))
 
-    # 6. Storm Deaths
-    if show_storm:
-        storm = match_df[match_df['event'] == 'KilledByStorm']
-        fig.add_trace(go.Scatter(
-            x=storm['pixel_x'], y=storm['pixel_y'],
-            mode='markers',
-            name="Storm Death",
-            marker=dict(symbol='circle-dot', size=14, color='purple', line=dict(width=2, color='white')),
-            hovertext="Storm death: " + storm['user_id'].astype(str)
-        ))
+# 6. Storm Deaths
+if show_storm:
+    storm = match_df[match_df['event'] == 'KilledByStorm']
+    fig.add_trace(go.Scatter(
+        x=storm['pixel_x'], y=storm['pixel_y'],
+        mode='markers',
+        name="Storm Death",
+        marker=dict(symbol='circle-dot', size=14, color='purple', line=dict(width=2, color='white')),
+        hovertext="Storm death: " + storm['user_id'].astype(str)
+    ))
 
-# Add the high-res background via GitHub CDN (Browser will cache this!)
+# Add the background via base64 (now small and stable)
 fig.add_layout_image(
     dict(
-        source=MAP_CDN_URLS.get(selected_map, ""),
+        source=map_source,
         xref="x",
         yref="y",
         x=0,
@@ -310,14 +381,26 @@ fig.add_layout_image(
         layer="below")
 )
 
-# Update layout: Range [0, 1024] for X, but [1024, 0] for Y to put 0 at the top.
+# Update layout with dynamic viewport (Autofocus or Full Map)
 fig.update_layout(
-    xaxis=dict(showgrid=False, range=[0, 1024], visible=False),
-    yaxis=dict(showgrid=False, range=[1024, 0], scaleanchor="x", scaleratio=1, visible=False),
-    width=800,
+    xaxis=dict(showgrid=False, range=st.session_state.map_x_range, visible=False),
+    yaxis=dict(showgrid=False, range=st.session_state.map_y_range, scaleanchor="x", scaleratio=1, visible=False),
+    width=900,
     height=800,
-    margin=dict(l=0, r=0, t=0, b=0),
-    plot_bgcolor='black'
+    margin=dict(l=0, r=150, t=30, b=0), # Added right margin for legend
+    plot_bgcolor='black',
+    uirevision=selected_match, # Preserves manual zoom/pan across reruns if requested range doesn't change
+    legend=dict(
+        orientation="v",
+        yanchor="top",
+        y=1,
+        xanchor="left",
+        x=1.02,
+        bgcolor="rgba(0, 0, 0, 0.5)",
+        bordercolor="rgba(255, 255, 255, 0.3)",
+        borderwidth=1,
+        font=dict(size=12, color="white")
+    )
 )
 
 st.plotly_chart(fig, use_container_width=True)

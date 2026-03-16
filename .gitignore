@@ -3,7 +3,8 @@ __pycache__/
 *.log
 *.html
 .streamlit/
-check_logic.py
-plotly_animation_test.py
-plotly_cumulative_animation.py
 .DS_Store
+*.xlsx
+*.pdf
+player_data/
+static/minimaps/*_optimized.jpg
