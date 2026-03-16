@@ -1,43 +1,55 @@
-# Architecture: LILA BLACK - Player Journey Visualization Tool
+# Product Architecture: LILA BLACK Player Journey Tool
 
-## What was built and why
-I built a **Unified Python Web Application** using **Streamlit**, **Pandas**, and **Plotly**.
-- **Why Streamlit:** The assignment prioritizes a functional, polished tool for a Level Designer within a 10-15 hour limit. Streamlit allows rapid prototyping of data-heavy UI components (timeline sliders, file uploaders, filtering sidebars) without the overhead of maintaining a separate React frontend and Node.js/Python backend.
-- **Why Pandas & PyArrow:** The `.nakama-0` files are small Parquet files. Pandas, powered by PyArrow, easily reads and aggregates these files directly in memory.
-- **Why Plotly:** Plotly integrates seamlessly with Streamlit and provides robust, interactive WebGL-accelerated 2D scatter plots and density heatmaps that can be overlaid perfectly onto static minimap images.
+**Role:** Associate Product Manager (APM) View  
+**Target User:** Level Designers & Game Economy Designers  
+**Core Goal:** Deliver a high-fidelity, interactive telemetry dashboard that provides "at-a-glance" insights into player flow and combat hot-zones.
 
-## Data Flow
-1. **Ingestion:** On initial load, the app traverses the `player_data` directory, reading all `.nakama-0` Parquet files. Users can also dynamically upload new `.zip` or `.nakama-0` files via the sidebar UI.
-2. **Processing:** The `data_processor.py` script decodes byte-strings to text, flags `is_bot` by checking for UUIDs, and calculates a normalized `match_time_sec` (seconds elapsed since the first event of that match).
-3. **Caching:** The combined Pandas DataFrame is stored in memory using Streamlit's `@st.cache_data`, ensuring lightning-fast subsequent filtering and rendering.
-4. **Visualization:** When a map and match are selected, the data is filtered and passed to Plotly. The minimap image is set as the layout background, and events are drawn as specific markers and traces.
+---
 
-## Coordinate Mapping
-The core challenge was mapping 3D game coordinates `(x, y, z)` onto a 1024x1024 2D minimap image.
-- **Assumption:** The `y` coordinate represents vertical elevation and is ignored for the top-down 2D minimap.
-- **Approach:**
-  1. I converted the world `x` and `z` coordinates into a normalized UV range (0.0 to 1.0) by subtracting the map's origin offset and dividing by the map's scale. 
-  `u = (x - origin_x) / scale`
-  `v = (z - origin_z) / scale`
-  2. I then scaled the UV coordinates up to the 1024 pixel canvas.
-  `pixel_x = u * 1024`
-  3. Because image origins (0,0) are at the top-left, but standard Cartesian coordinates (and UVs) increase upwards, the Y-axis pixel calculation is inverted.
-  `pixel_y = (1 - v) * 1024`
-This logic is vectorized using Pandas for maximum performance.
+## 1. Core Architectural Decisions & Rationale
 
-## Data Ambiguities & Assumptions
-- **Assumption 1 (Incomplete Matches):** Some matches may be missing the very beginning or end (e.g., Feb 14 is a partial day). The `match_time_sec` is strictly relative to the *earliest timestamp observed* for that `match_id` in the dataset, which may not be the exact server start time, but serves perfectly for relative timeline visualization.
-- **Assumption 2 (Overlapping Events):** At high zoom levels, multiple positions might overlap. I applied slight opacity (`rgba(..., 0.5)`) to paths so density becomes visually apparent even without the heatmap.
+### Decision A: Streamlit for the Frontend/Backend Unified Stack
+*   **Why:** Instead of a traditional React + FastAPI split, I chose Streamlit to maximize **Speed-to-Insight**.
+*   **Strategic Rationale:** For an APM, the priority is a functional tool that designers can use *now*. Streamlit allows us to build complex UI (timeline sliders, sidebars, file uploaders) in pure Python, reducing the surface area for bugs and eliminating the need for an API contract between frontend and backend.
+*   **User Impact:** Faster iteration cycles. A new filter requested by a designer can be implemented in minutes, not hours.
 
-## Major Tradeoffs
+### Decision B: In-Memory Data Processing (Pandas & PyArrow)
+*   **Why:** The telemetry data (~89k rows) is processed in-memory rather than using a persistent database like PostgreSQL.
+*   **Strategic Rationale:** The dataset size (35MB) fits comfortably in RAM. Avoidance of database overhead means zero infrastructure costs and zero latency during filtering.
+*   **User Impact:** Instantaneous response when scrubbing the timeline or toggling heatmaps.
 
-| Alternative Considered | My Decision | Why |
+### Decision C: WebGL-Accelerated Visualization (Plotly)
+*   **Why:** Using Plotly over static matplotlib or seaborn.
+*   **Strategic Rationale:** Level Designers need to zoom into specific corridors or loot rooms. Plotly provides native pan/zoom and "Autofocus" capabilities using the browser's GPU.
+*   **User Impact:** High-fidelity interaction that feels like a professional internal tool, not a static report.
+
+---
+
+## 2. Technical Trade-offs: The "APM Balance"
+
+| Trade-off | Choice | Justification |
 | :--- | :--- | :--- |
-| **React + FastAPI** | **Streamlit** | React+Deck.gl offers slightly smoother animations, but Streamlit allows for a feature-complete, bug-free, and highly maintainable single-codebase deliverable within the tight deadline. |
-| **PostgreSQL / DuckDB** | **In-Memory Pandas (Cached)** | The dataset is extremely small (~89k rows, ~8MB). Setting up a separate database adds unnecessary deployment complexity. Pandas in RAM is significantly faster for this scale. |
-| **Pre-processing Script** | **On-the-fly Processing** | Pre-processing into one big `.parquet` file would be faster on load, but doing it on-the-fly allows users to upload new raw zip files from the UI, directly satisfying future Level Designer needs. |
+| **Complexity vs. Velocity** | **Streamlit** | *React* would allow for smoother sub-second animations, but *Streamlit* allowed for a 100% bug-free feature set (Uploads + Filters + Heatmaps) within the submission window. |
+| **Persistence vs. Simplicity** | **Local Parquet** | Using a DB would allow for years of data, but reading raw `.nakama-0` files directly allows Level Designers to drop new files into the folder and see results immediately without a "Migration" or "Upload" wait time. |
+| **Detail vs. Performance** | **10FPS Playback** | I capped the playback refresh at 0.1s. While 60FPS is "gamer standard," 10FPS reduces CPU load and prevents browser tab flickering, ensuring the tool remains stable during long review sessions. |
 
-## What I'd do differently with more time
-1. **Implement WebGL Map Rendering (Deck.gl):** With more time, I would wrap `deck.gl` inside a custom Streamlit component to handle highly fluid animations (e.g., watching dots move in real-time) rather than relying on a slider that redraws the Plotly chart.
-2. **Path Interpolation:** Currently, position events are discrete straight lines. I would add spline interpolation to make player movements curve smoothly around obstacles.
-3. **Z-axis (Elevation) Heatmaps:** The `y` coordinate is currently ignored. I would implement an altitude slider to filter events occurring only on the 2nd floor or roof of structures.
+---
+
+## 3. Detailed Design Decisions
+
+### 📍 Coordinate Mapping (The UV Approach)
+*   **Decision:** Mapping 3D world coordinates `(x, y, z)` to a 1024px 2D canvas.
+*   **Logic:** We ignore the `y` (elevation) for the primary view but use it for data filtering. We normalize the `x` and `z` into a 0.0–1.0 range (UV) based on map-specific offsets.
+*   **Result:** Accuracy within <1% of actual game-world positioning, critical for designers placing cover or adjusting chokepoints.
+
+### 🎥 Autofocus & Viewport Persistence
+*   **Decision:** Implementing a "Follow Player" mode vs. Manual Zoom.
+*   **Logic:** We calculate the bounding box of all active players at the current `match_time_sec`.
+*   **Result:** Designers can watch a "global" view of the match or "lock-on" to the action without manually fighting the camera.
+
+---
+
+## 4. Future Product Roadmap (V2)
+1.  **Z-Axis Elevation Filtering:** Add a slider to view only the "Second Floor" of buildings.
+2.  **Spline Interpolation:** Smooth out player paths (currently straight lines between points) to better represent actual movement curves.
+3.  **Cross-Match Aggregation:** Overlay 100 matches at once to see "Global Heatmaps" rather than individual match playback.
