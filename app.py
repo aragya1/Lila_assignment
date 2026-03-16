@@ -237,9 +237,9 @@ elif not show_autofocus and not st.session_state.playing:
 
 # Map Static Mapping (Optimized Local Files)
 MAP_OPTIMIZED_PATHS = {
-    'AmbroseValley': "static/minimaps/AmbroseValley_optimized.jpg",
-    'GrandRift':     "static/minimaps/GrandRift_optimized.jpg",
-    'Lockdown':      "static/minimaps/Lockdown_optimized.jpg"
+    'AmbroseValley': "player_data/minimaps/AmbroseValley_optimized.jpg",
+    'GrandRift':     "player_data/minimaps/GrandRift_optimized.jpg",
+    'Lockdown':      "player_data/minimaps/Lockdown_optimized.jpg"
 }
 
 # Resolve Map Source (Pre-loaded for Plotly)
