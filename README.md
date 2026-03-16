@@ -1,5 +1,7 @@
 # LILA BLACK - Player Journey Visualization Tool
 
+**🚀 Live Demo:** [lilaaragya.streamlit.app](https://lilaaragya.streamlit.app/)
+
 This tool provides an interactive, web-based visualization of player telemetry data for LILA BLACK. It allows Level Designers to view player paths, combat events, and heatmaps overlaid on game minimaps.
 
 ## Features
