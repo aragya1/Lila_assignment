@@ -25,6 +25,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- CSS Hack: Hide Streamlit Branding (Ads/Footer/Menu) ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            #stDecoration {display:none;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 @st.cache_data
 def load_base_data():
     base_dir = "player_data"
