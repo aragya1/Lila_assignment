@@ -49,3 +49,29 @@ Across 796 unique matches recorded over 5 days:
   - Investigate the matchmaking "bucket" logic; why are so many matches starting with only one player instead of waiting to fill?
   - Consider a "match start delay" or a minimum player threshold before spawning the instance.
 - **Why a level designer should care:** A map's layout and chokepoints only "work" when there is a critical mass of players interacting. If 93% of matches are solo, the map feels like an empty walking simulator, and the carefully designed level geometry is never truly tested by combat or tactical positioning.
+
+---
+
+## 🛠️ Notable Edge Case Matches for Testing
+These matches are highly valuable for testing the visualization tool's performance and robustness:
+
+1. **⚔️ High Combat:** `b3550292-8f80-493a-a422-95c4e70f0a5e.nakama-0`
+   - **Scenario:** Highest combat activity with **38 BotKill events**. 
+   - **Test Case:** Verify marker overlay density and "Kills" checkbox visibility.
+
+2. **👨‍👩‍👧‍👦 Maximum Density:** `fbbc5d02-dd79-42fb-bba5-d768023891c8.nakama-0`
+   - **Scenario:** Peak concurrency with **16 unique entities**.
+   - **Test Case:** Test **Autofocus** camera logic on a wide bounding box.
+
+3. **🌪️ Storm Death:** `8c8aca2d-626d-4d99-ad69-8c02acee5256.nakama-0`
+   - **Scenario:** Rare environmental death event (`KilledByStorm`).
+   - **Test Case:** Confirm the **Purple Circle-Dot** marker appears at the precise end-of-life coordinates.
+
+4. **👻 Ghost Match:** `9b982ee6-e84b-4133-93f6-16725fca348f.nakama-0`
+   - **Scenario:** Extreme low-data edge case (**2 total events**).
+   - **Test Case:** Ensure playback slider stability and error handling.
+
+5. **🌍 Map Complexity:**
+   - **Lockdown (Heavy Data):** `d0a38c30-d476-4305-857d-ece9e65f72e6.nakama-0` (1,216 events).
+   - **AmbroseValley (Long Traversal):** `de5aa1ae-6246-4cfb-9941-adf5996ef678.nakama-0` (1,124 events).
+   - **Test Case:** Test **x4.0 Speed** and **±10s Jump** buttons.
