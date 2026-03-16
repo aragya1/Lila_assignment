@@ -24,7 +24,7 @@
 
 ---
 
-## 2. Technical Trade-offs: The "APM Balance"
+## 2. Technical Trade-offs:
 
 | Trade-off | Choice | Justification |
 | :--- | :--- | :--- |
