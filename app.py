@@ -16,7 +16,14 @@ def get_image_base64(img):
     img.convert("RGB").save(buffered, format="JPEG", quality=85)
     return "data:image/jpeg;base64," + base64.b64encode(buffered.getvalue()).decode()
 
-st.set_page_config(page_title="LILA Player Journey Visualization", layout="wide")
+# Page Configuration (Must be first Streamlit call)
+# Using a fixed title to prevent the browser tab from "changing" or flickering during reruns
+st.set_page_config(
+    page_title="LILA Player Journey", 
+    page_icon="🗺️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 @st.cache_data
 def load_base_data():
@@ -129,13 +136,15 @@ if not match_df.empty:
             st.session_state.playing = False
         if 'last_play_time' not in st.session_state:
             st.session_state.last_play_time = None
+        if 'playback_speed' not in st.session_state:
+            st.session_state.playback_speed = 1.0
 
-        # Playback Controls
+        # Playback Controls - Row 1
         col1, col2 = st.sidebar.columns(2)
         
         # Play / Pause Toggle
         play_label = "⏸️ Pause" if st.session_state.playing else "▶️ Play"
-        if col1.button(play_label):
+        if col1.button(play_label, use_container_width=True):
             # If we are at the end, restart automatically
             if not st.session_state.playing and st.session_state.playback_time >= max_time:
                 st.session_state.playback_time = 0.0
@@ -146,11 +155,28 @@ if not match_df.empty:
             st.rerun()
 
         # Restart Button
-        if col2.button("🔄 Restart"):
+        if col2.button("🔄 Restart", use_container_width=True):
             st.session_state.playback_time = 0.0
             st.session_state.playing = True
             st.session_state.last_play_time = time.time()
             st.rerun()
+
+        # Playback Controls - Row 2 (Jump Buttons)
+        col3, col4 = st.sidebar.columns(2)
+        if col3.button("⏪ -10s", use_container_width=True):
+            st.session_state.playback_time = max(0.0, st.session_state.playback_time - 10.0)
+            st.rerun()
+        if col4.button("⏩ +10s", use_container_width=True):
+            st.session_state.playback_time = min(max_time, st.session_state.playback_time + 10.0)
+            st.rerun()
+
+        # Speed Selector
+        st.session_state.playback_speed = st.sidebar.select_slider(
+            "Playback Speed",
+            options=[1.0, 1.25, 1.5, 2.0, 4.0],
+            value=st.session_state.playback_speed,
+            format_func=lambda x: f"x{x}"
+        )
 
         # The Slider
         st.session_state.playback_time = st.sidebar.slider(
@@ -260,6 +286,9 @@ if show_heatmap:
         ))
 
 # --- Layer 2: Player Paths & Event Markers ---
+# We collect Start/End markers separately to add them LAST (on top of everything)
+start_end_markers = []
+
 # 1. Human Paths
 if show_human_pos:
     human_pos = match_df[(match_df['event'] == 'Position') & (~match_df['is_bot'])]
@@ -281,8 +310,8 @@ if show_human_pos:
             text=f"Human: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s"
         ))
         
-        # Start/End Markers
-        fig.add_trace(go.Scatter(
+        # Start/End Markers (Collect for later)
+        start_end_markers.append(go.Scatter(
             x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
             y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
             mode='markers',
@@ -311,8 +340,8 @@ if show_bot_pos:
             text=f"Bot: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s"
         ))
         
-        # Start/End for bots
-        fig.add_trace(go.Scatter(
+        # Start/End for bots (Collect for later)
+        start_end_markers.append(go.Scatter(
             x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
             y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
             mode='markers',
@@ -363,6 +392,11 @@ if show_storm:
         marker=dict(symbol='circle-dot', size=14, color='purple', line=dict(width=2, color='white')),
         hovertext="Storm death: " + storm['user_id'].astype(str)
     ))
+
+# --- FINAL LAYER: Start/End Markers ---
+# We add these last so they appear on top of paths, kills, deaths, etc.
+for marker in start_end_markers:
+    fig.add_trace(marker)
 
 # Add the background via base64 (now small and stable)
 fig.add_layout_image(
@@ -415,7 +449,7 @@ if 'playing' in st.session_state and st.session_state.playing:
         # Calculate real-time elapsed since last run
         now = time.time()
         if st.session_state.last_play_time is not None:
-            delta = now - st.session_state.last_play_time
+            delta = (now - st.session_state.last_play_time) * st.session_state.playback_speed
             # Increment playback time by the real-time delta
             st.session_state.playback_time = min(st.session_state.playback_time + delta, max_time)
         
@@ -426,8 +460,9 @@ if 'playing' in st.session_state and st.session_state.playing:
             st.session_state.playing = False
             st.session_state.last_play_time = None
         
-        # Short pause to prevent CPU pegging, then rerun to update UI
-        time.sleep(0.05)
+        # Balanced pause to prevent CPU pegging and reduce browser tab "flickering"
+        # 0.1s provides a smooth 10fps update which is usually enough for telemetry
+        time.sleep(0.1)
         st.rerun()
     else:
         st.session_state.playing = False
