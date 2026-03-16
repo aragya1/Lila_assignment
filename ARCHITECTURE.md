@@ -1,6 +1,5 @@
 # Product Architecture: LILA BLACK Player Journey Tool
 
-**Role:** Associate Product Manager (APM) View  
 **Target User:** Level Designers & Game Economy Designers  
 **Core Goal:** Deliver a high-fidelity, interactive telemetry dashboard that provides "at-a-glance" insights into player flow and combat hot-zones.
 
