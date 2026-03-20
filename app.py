@@ -100,6 +100,9 @@ if df.empty:
 st.sidebar.markdown("---")
 search_query = st.sidebar.text_input("Search by Match ID", placeholder="Enter full or partial ID...")
 
+is_aggregate = False
+match_df = pd.DataFrame()
+
 if search_query:
     # Find all matches matching the query
     matching_matches = df[df['match_id'].str.contains(search_query, case=False, na=False)]['match_id'].unique()
@@ -131,6 +134,18 @@ else:
     options = ["📊 ALL MATCHES (Aggregate View)"] + matches
     selected_match = st.sidebar.selectbox("Select Match", options)
     
+    if selected_match == "📊 ALL MATCHES (Aggregate View)":
+        is_aggregate = True
+        match_df = filtered_df.copy()
+    else:
+        is_aggregate = False
+        match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
+
+# --- Match Playback & Stats ---
+st.sidebar.markdown("---")
+st.sidebar.header("⏳ Match Playback")
+
+if not match_df.empty:
     if is_aggregate:
         st.sidebar.info("💡 **Aggregate Mode:** Viewing patterns across all matches for this map/date. Playback is disabled.")
         
@@ -515,25 +530,30 @@ with st.expander("View Raw Data for this Match"):
 
 # Real-time Playback Loop (Executed AFTER rendering)
 if 'playing' in st.session_state and st.session_state.playing:
-    if st.session_state.playback_time < max_time:
-        # Calculate real-time elapsed since last run
-        now = time.time()
-        if st.session_state.last_play_time is not None:
-            delta = (now - st.session_state.last_play_time) * st.session_state.playback_speed
-            # Increment playback time by the real-time delta
-            st.session_state.playback_time = min(st.session_state.playback_time + delta, max_time)
-        
-        st.session_state.last_play_time = now
-        
-        # Check if we reached the end
-        if st.session_state.playback_time >= max_time:
+    if not match_df.empty and not is_aggregate:
+        max_time = float(match_df['match_time_sec'].max())
+        if st.session_state.playback_time < max_time:
+            # Calculate real-time elapsed since last run
+            now = time.time()
+            if st.session_state.last_play_time is not None:
+                delta = (now - st.session_state.last_play_time) * st.session_state.playback_speed
+                # Increment playback time by the real-time delta
+                st.session_state.playback_time = min(st.session_state.playback_time + delta, max_time)
+            
+            st.session_state.last_play_time = now
+            
+            # Check if we reached the end
+            if st.session_state.playback_time >= max_time:
+                st.session_state.playing = False
+                st.session_state.last_play_time = None
+            
+            # Balanced pause to prevent CPU pegging and reduce browser tab "flickering"
+            # 0.1s provides a smooth 10fps update which is usually enough for telemetry
+            time.sleep(0.1)
+            st.rerun()
+        else:
             st.session_state.playing = False
             st.session_state.last_play_time = None
-        
-        # Balanced pause to prevent CPU pegging and reduce browser tab "flickering"
-        # 0.1s provides a smooth 10fps update which is usually enough for telemetry
-        time.sleep(0.1)
-        st.rerun()
     else:
         st.session_state.playing = False
         st.session_state.last_play_time = None
