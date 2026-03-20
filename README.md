@@ -1,12 +1,3 @@
----
-title: LILA Player Journey Visualization
-emoji: 🗺️
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-pinned: false
----
-
 # LILA BLACK - Player Journey Visualization Tool
 
 **🚀 Live Demo:** [lilaaragya.streamlit.app](https://lilaaragya.streamlit.app/)
