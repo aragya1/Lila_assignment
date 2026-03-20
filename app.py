@@ -131,21 +131,33 @@ else:
     options = ["📊 ALL MATCHES (Aggregate View)"] + matches
     selected_match = st.sidebar.selectbox("Select Match", options)
     
-    if selected_match == "📊 ALL MATCHES (Aggregate View)":
-        is_aggregate = True
-        match_df = filtered_df.copy()
-        st.sidebar.info("💡 **Aggregate Mode:** Viewing patterns across all matches for this map/date. Playback is disabled.")
-    else:
-        is_aggregate = False
-        match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
-
-# --- Timeline Slider (Simplified) ---
-st.sidebar.markdown("---")
-st.sidebar.header("⏳ Match Playback")
-
-if not match_df.empty:
     if is_aggregate:
-        st.sidebar.warning("Playback not available in Aggregate View.")
+        st.sidebar.info("💡 **Aggregate Mode:** Viewing patterns across all matches for this map/date. Playback is disabled.")
+        
+        # --- Aggregate Statistics Summary ---
+        st.sidebar.markdown("### 📊 Event Summary")
+        event_counts = match_df['event'].value_counts()
+        
+        # Mapping for cleaner display names
+        display_names = {
+            'Kill': '⚔️ Human Kills',
+            'BotKill': '🤖 Bot Kills',
+            'Killed': '💀 Human Deaths',
+            'BotKilled': '🤖 Bot Deaths',
+            'KilledByStorm': '🌪️ Storm Deaths',
+            'Loot': '📦 Loot Pickups',
+            'Position': '🚶 Human Movements',
+            'BotPosition': '🤖 Bot Movements'
+        }
+        
+        summary_data = []
+        for event_type, count in event_counts.items():
+            name = display_names.get(event_type, event_type)
+            summary_data.append({"Event": name, "Count": count})
+        
+        if summary_data:
+            st.sidebar.table(pd.DataFrame(summary_data).set_index('Event'))
+        
         max_time = 0
     else:
         max_time = float(match_df['match_time_sec'].max())
