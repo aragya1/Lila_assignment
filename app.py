@@ -128,75 +128,87 @@ else:
 
     # 3. Match Filter
     matches = sorted(filtered_df['match_id'].dropna().unique())
-    selected_match = st.sidebar.selectbox("Select Match", matches)
-    match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
+    options = ["📊 ALL MATCHES (Aggregate View)"] + matches
+    selected_match = st.sidebar.selectbox("Select Match", options)
+    
+    if selected_match == "📊 ALL MATCHES (Aggregate View)":
+        is_aggregate = True
+        match_df = filtered_df.copy()
+        st.sidebar.info("💡 **Aggregate Mode:** Viewing patterns across all matches for this map/date. Playback is disabled.")
+    else:
+        is_aggregate = False
+        match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
 
 # --- Timeline Slider (Simplified) ---
 st.sidebar.markdown("---")
 st.sidebar.header("⏳ Match Playback")
 
 if not match_df.empty:
-    max_time = float(match_df['match_time_sec'].max())
-    st.sidebar.write(f"Match Duration: {max_time:.1f}s | Events: {len(match_df)}")
-    
-    if max_time > 0:
-        # Initialize playback state
-        if 'playback_time' not in st.session_state:
-            st.session_state.playback_time = max_time
-        if 'playing' not in st.session_state:
-            st.session_state.playing = False
-        if 'last_play_time' not in st.session_state:
-            st.session_state.last_play_time = None
-        if 'playback_speed' not in st.session_state:
-            st.session_state.playback_speed = 1.0
-
-        # Playback Controls - Row 1
-        col1, col2 = st.sidebar.columns(2)
-        
-        # Play / Pause Toggle
-        play_label = "⏸️ Pause" if st.session_state.playing else "▶️ Play"
-        if col1.button(play_label, use_container_width=True):
-            # If we are at the end, restart automatically
-            if not st.session_state.playing and st.session_state.playback_time >= max_time:
-                st.session_state.playback_time = 0.0
-            
-            st.session_state.playing = not st.session_state.playing
-            if st.session_state.playing:
-                st.session_state.last_play_time = time.time()
-            st.rerun()
-
-        # Restart Button
-        if col2.button("🔄 Restart", use_container_width=True):
-            st.session_state.playback_time = 0.0
-            st.session_state.playing = True
-            st.session_state.last_play_time = time.time()
-            st.rerun()
-
-        # Playback Controls - Row 2 (Jump Buttons)
-        col3, col4 = st.sidebar.columns(2)
-        if col3.button("⏪ -10s", use_container_width=True):
-            st.session_state.playback_time = max(0.0, st.session_state.playback_time - 10.0)
-            st.rerun()
-        if col4.button("⏩ +10s", use_container_width=True):
-            st.session_state.playback_time = min(max_time, st.session_state.playback_time + 10.0)
-            st.rerun()
-
-        # Speed Selector
-        st.session_state.playback_speed = st.sidebar.select_slider(
-            "Playback Speed",
-            options=[1.0, 1.25, 1.5, 2.0, 4.0],
-            value=st.session_state.playback_speed,
-            format_func=lambda x: f"x{x}"
-        )
-
-        # The Slider
-        st.session_state.playback_time = st.sidebar.slider(
-            "Time (seconds)", 
-            0.0, max_time, st.session_state.playback_time, 1.0
-        )
-        match_df = match_df[match_df['match_time_sec'] <= st.session_state.playback_time]
+    if is_aggregate:
+        st.sidebar.warning("Playback not available in Aggregate View.")
+        max_time = 0
     else:
-        st.sidebar.info("Static match (no movement).")
+        max_time = float(match_df['match_time_sec'].max())
+        st.sidebar.write(f"Match Duration: {max_time:.1f}s | Events: {len(match_df)}")
+        
+        if max_time > 0:
+            # Initialize playback state
+            if 'playback_time' not in st.session_state:
+                st.session_state.playback_time = max_time
+            if 'playing' not in st.session_state:
+                st.session_state.playing = False
+            if 'last_play_time' not in st.session_state:
+                st.session_state.last_play_time = None
+            if 'playback_speed' not in st.session_state:
+                st.session_state.playback_speed = 1.0
+
+            # Playback Controls - Row 1
+            col1, col2 = st.sidebar.columns(2)
+            
+            # Play / Pause Toggle
+            play_label = "⏸️ Pause" if st.session_state.playing else "▶️ Play"
+            if col1.button(play_label, use_container_width=True):
+                # If we are at the end, restart automatically
+                if not st.session_state.playing and st.session_state.playback_time >= max_time:
+                    st.session_state.playback_time = 0.0
+                
+                st.session_state.playing = not st.session_state.playing
+                if st.session_state.playing:
+                    st.session_state.last_play_time = time.time()
+                st.rerun()
+
+            # Restart Button
+            if col2.button("🔄 Restart", use_container_width=True):
+                st.session_state.playback_time = 0.0
+                st.session_state.playing = True
+                st.session_state.last_play_time = time.time()
+                st.rerun()
+
+            # Playback Controls - Row 2 (Jump Buttons)
+            col3, col4 = st.sidebar.columns(2)
+            if col3.button("⏪ -10s", use_container_width=True):
+                st.session_state.playback_time = max(0.0, st.session_state.playback_time - 10.0)
+                st.rerun()
+            if col4.button("⏩ +10s", use_container_width=True):
+                st.session_state.playback_time = min(max_time, st.session_state.playback_time + 10.0)
+                st.rerun()
+
+            # Speed Selector
+            st.session_state.playback_speed = st.sidebar.select_slider(
+                "Playback Speed",
+                options=[1.0, 1.25, 1.5, 2.0, 4.0],
+                value=st.session_state.playback_speed,
+                format_func=lambda x: f"x{x}"
+            )
+
+            # The Slider
+            st.session_state.playback_time = st.sidebar.slider(
+                "Time (seconds)", 
+                0.0, max_time, st.session_state.playback_time, 1.0
+            )
+            match_df = match_df[match_df['match_time_sec'] <= st.session_state.playback_time]
+        else:
+            st.sidebar.info("Static match (no movement).")
 else:
     st.sidebar.error("Selected match data is empty.")
 
@@ -204,16 +216,17 @@ st.sidebar.markdown("---")
 
 # Sidebar - Event Toggles
 st.sidebar.header("🎯 Events to Display")
-show_human_pos = st.sidebar.checkbox("Human Positions", value=True)
-show_bot_pos = st.sidebar.checkbox("Bot Positions", value=True)
+# In aggregate mode, we default Human/Bot positions to false to keep it clean, but let user toggle them
+show_human_pos = st.sidebar.checkbox("Human Positions", value=not is_aggregate)
+show_bot_pos = st.sidebar.checkbox("Bot Positions", value=False)
 show_kills = st.sidebar.checkbox("Kills (Human vs Human & Bot)", value=True)
 show_deaths = st.sidebar.checkbox("Deaths", value=True)
-show_loot = st.sidebar.checkbox("Loot Drops/Pickups", value=True)
+show_loot = st.sidebar.checkbox("Loot Drops/Pickups", value=is_aggregate)
 show_storm = st.sidebar.checkbox("Storm Deaths", value=True)
 
 # Heatmap & Autofocus Toggles
 col_a, col_b = st.sidebar.columns(2)
-show_heatmap = col_a.toggle("🔥 Heatmap", value=False)
+show_heatmap = col_a.toggle("🔥 Heatmap", value=is_aggregate)
 show_autofocus = col_b.toggle("🎥 Autofocus", value=False, help="Automatically zoom to follow active players.")
 st.sidebar.markdown("---")
 
@@ -223,7 +236,7 @@ if 'current_match_id' not in st.session_state or st.session_state.current_match_
     st.session_state.map_x_range = [0, 1024]
     st.session_state.map_y_range = [1024, 0]
 
-if show_autofocus and not match_df.empty:
+if not is_aggregate and show_autofocus and not match_df.empty:
     # Find most recent positions of all active entities to define the viewport
     recent_human = match_df[(match_df['event'] == 'Position') & (~match_df['is_bot'])].sort_values('ts').groupby('user_id').last()
     recent_bot = match_df[(match_df['event'] == 'BotPosition') & (match_df['is_bot'])].sort_values('ts').groupby('user_id').last()
@@ -240,11 +253,10 @@ if show_autofocus and not match_df.empty:
         st.session_state.map_x_range = [max(0, min_x - pad), min(1024, max_x + pad)]
         # Y is inverted in our coordinate system (0 is top)
         st.session_state.map_y_range = [min(1024, max_y + pad), max(0, min_y - pad)]
-elif not show_autofocus and not st.session_state.playing:
-    # If stopped and not autofocusing, reset to full map (optional, but good for UX)
-    # st.session_state.map_x_range = [0, 1024]
-    # st.session_state.map_y_range = [1024, 0]
-    pass
+elif is_aggregate or (not show_autofocus and not st.session_state.get('playing', False)):
+    # Reset to full map in aggregate mode or when stopped
+    st.session_state.map_x_range = [0, 1024]
+    st.session_state.map_y_range = [1024, 0]
 
 # Map Static Mapping (Optimized Local Files)
 MAP_OPTIMIZED_PATHS = {
@@ -288,10 +300,11 @@ if show_heatmap:
         fig.add_trace(go.Histogram2dContour(
             x=heat_df['pixel_x'],
             y=heat_df['pixel_y'],
-            colorscale='Hot',
+            colorscale='YlOrRd', # Higher contrast for "Meat Grinders"
             reversescale=False,
-            opacity=0.4, # Lower opacity so paths are visible underneath
-            ncontours=20,
+            opacity=0.75, # Increased from 0.4 for better visibility
+            ncontours=40, # More detail in the density clusters
+            contours_coloring='heatmap', # Solid color fill for more "pop"
             showscale=False,
             hovertemplate="<b>Density</b>: %{z} events<br><b>X</b>: %{x:.0f}<br><b>Y</b>: %{y:.0f}<extra></extra>"
         ))
@@ -303,11 +316,11 @@ start_end_markers = []
 # 1. Human Paths
 if show_human_pos:
     human_pos = match_df[(match_df['event'] == 'Position') & (~match_df['is_bot'])]
-    uids = human_pos['user_id'].unique()
+    # Group by both match and user to prevent lines jumping across matches
+    groups = human_pos.groupby(['match_id', 'user_id'])
     colors = px.colors.qualitative.Plotly
     
-    for i, user_id in enumerate(uids):
-        group = human_pos[human_pos['user_id'] == user_id]
+    for i, ((m_id, u_id), group) in enumerate(groups):
         if group.empty: continue
         color = colors[i % len(colors)]
         
@@ -315,50 +328,55 @@ if show_human_pos:
         fig.add_trace(go.Scatter(
             x=group['pixel_x'], y=group['pixel_y'],
             mode='lines',
-            name=f"Human: {str(user_id)[:6]}",
-            line=dict(color=color, width=3),
-            hoverinfo='text',
-            text=f"Human: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s"
+            name=f"Human: {str(u_id)[:6]}" if not is_aggregate else "Human Path",
+            line=dict(color=color, width=2 if is_aggregate else 3),
+            opacity=0.3 if is_aggregate else 1.0,
+            hoverinfo='text' if not is_aggregate else 'skip', # Disable snapping in aggregate
+            text=f"Match: {m_id}<br>Human: {u_id}<br>Time: " + group['match_time_sec'].astype(str) + "s",
+            showlegend=not is_aggregate or i == 0 # Only show one "Human Path" in legend if aggregate
         ))
         
-        # Start/End Markers (Collect for later)
-        start_end_markers.append(go.Scatter(
-            x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
-            y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
-            mode='markers',
-            name=f"Start/End: {str(user_id)[:6]}",
-            marker=dict(symbol=['triangle-right', 'square'], size=[15, 12], color=['lime', 'red'], line=dict(width=1, color='black')),
-            showlegend=False
-        ))
+        # Start/End Markers (Only for single match to keep aggregate clean)
+        if not is_aggregate:
+            start_end_markers.append(go.Scatter(
+                x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
+                y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
+                mode='markers',
+                name=f"Start/End: {str(u_id)[:6]}",
+                marker=dict(symbol=['triangle-right', 'square'], size=[15, 12], color=['lime', 'red'], line=dict(width=1, color='black')),
+                showlegend=False
+            ))
         
 # 2. Bot Paths
 if show_bot_pos:
     bot_pos = match_df[(match_df['event'] == 'BotPosition') & (match_df['is_bot'])]
-    bot_uids = bot_pos['user_id'].unique()
+    bot_groups = bot_pos.groupby(['match_id', 'user_id'])
     bot_colors = px.colors.qualitative.Pastel
     
-    for i, user_id in enumerate(bot_uids):
-        group = bot_pos[bot_pos['user_id'] == user_id]
+    for i, ((m_id, u_id), group) in enumerate(bot_groups):
         if group.empty: continue
         color = bot_colors[i % len(bot_colors)]
         
         fig.add_trace(go.Scatter(
             x=group['pixel_x'], y=group['pixel_y'],
             mode='lines',
-            name=f"Bot: {user_id}",
-            line=dict(color=color, width=2, dash='dot'),
-            hoverinfo='text',
-            text=f"Bot: {user_id}<br>Time: " + group['match_time_sec'].astype(str) + "s"
+            name=f"Bot: {u_id}" if not is_aggregate else "Bot Path",
+            line=dict(color=color, width=1 if is_aggregate else 2, dash='dot'),
+            opacity=0.2 if is_aggregate else 1.0,
+            hoverinfo='text' if not is_aggregate else 'skip',
+            text=f"Match: {m_id}<br>Bot: {u_id}<br>Time: " + group['match_time_sec'].astype(str) + "s",
+            showlegend=not is_aggregate or i == 0
         ))
         
-        # Start/End for bots (Collect for later)
-        start_end_markers.append(go.Scatter(
-            x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
-            y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
-            mode='markers',
-            marker=dict(symbol=['triangle-right', 'square'], size=[10, 8], color=['lime', 'red']),
-            showlegend=False
-        ))
+        # Start/End for bots (Only for single match)
+        if not is_aggregate:
+            start_end_markers.append(go.Scatter(
+                x=[group['pixel_x'].iloc[0], group['pixel_x'].iloc[-1]], 
+                y=[group['pixel_y'].iloc[0], group['pixel_y'].iloc[-1]],
+                mode='markers',
+                marker=dict(symbol=['triangle-right', 'square'], size=[10, 8], color=['lime', 'red']),
+                showlegend=False
+            ))
             
 # 3. Kills
 if show_kills:
@@ -367,7 +385,14 @@ if show_kills:
         x=kills['pixel_x'], y=kills['pixel_y'],
         mode='markers',
         name="Kills",
-        marker=dict(symbol='cross', size=12, color='green', line=dict(width=1, color='white')),
+        marker=dict(
+            symbol='cross', 
+            size=8 if is_aggregate else 12, 
+            color='green', 
+            opacity=0.5 if is_aggregate else 1.0,
+            line=dict(width=0.5 if is_aggregate else 1, color='white')
+        ),
+        hoverinfo='text' if not is_aggregate else 'skip',
         hovertext=kills['event'] + " by " + kills['user_id'].astype(str)
     ))
 
@@ -378,7 +403,14 @@ if show_deaths:
         x=deaths['pixel_x'], y=deaths['pixel_y'],
         mode='markers',
         name="Deaths",
-        marker=dict(symbol='x', size=12, color='red', line=dict(width=1, color='white')),
+        marker=dict(
+            symbol='x', 
+            size=8 if is_aggregate else 12, 
+            color='red', 
+            opacity=0.5 if is_aggregate else 1.0,
+            line=dict(width=0.5 if is_aggregate else 1, color='white')
+        ),
+        hoverinfo='text' if not is_aggregate else 'skip',
         hovertext=deaths['event'] + " of " + deaths['user_id'].astype(str)
     ))
 
@@ -389,7 +421,14 @@ if show_loot:
         x=loot['pixel_x'], y=loot['pixel_y'],
         mode='markers',
         name="Loot",
-        marker=dict(symbol='diamond', size=10, color='yellow', line=dict(width=1, color='black')),
+        marker=dict(
+            symbol='diamond', 
+            size=6 if is_aggregate else 10, # Smaller in aggregate to prevent overlap
+            color='yellow', 
+            opacity=0.4 if is_aggregate else 1.0, # Semi-transparent in aggregate
+            line=dict(width=0.5 if is_aggregate else 1, color='black')
+        ),
+        hoverinfo='text' if not is_aggregate else 'skip',
         hovertext="Looted by " + loot['user_id'].astype(str)
     ))
 
@@ -400,7 +439,14 @@ if show_storm:
         x=storm['pixel_x'], y=storm['pixel_y'],
         mode='markers',
         name="Storm Death",
-        marker=dict(symbol='circle-dot', size=14, color='purple', line=dict(width=2, color='white')),
+        marker=dict(
+            symbol='circle-dot', 
+            size=10 if is_aggregate else 14, 
+            color='purple', 
+            opacity=0.6 if is_aggregate else 1.0,
+            line=dict(width=1 if is_aggregate else 2, color='white')
+        ),
+        hoverinfo='text' if not is_aggregate else 'skip',
         hovertext="Storm death: " + storm['user_id'].astype(str)
     ))
 
@@ -435,6 +481,7 @@ fig.update_layout(
     margin=dict(l=0, r=150, t=30, b=0), # Added right margin for legend
     plot_bgcolor='black',
     uirevision=selected_match, # Preserves manual zoom/pan across reruns if requested range doesn't change
+    hovermode='closest', # Ensures focus on what is directly under cursor
     legend=dict(
         orientation="v",
         yanchor="top",

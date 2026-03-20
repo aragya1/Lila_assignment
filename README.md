@@ -1,3 +1,12 @@
+---
+title: LILA Player Journey Visualization
+emoji: 🗺️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # LILA BLACK - Player Journey Visualization Tool
 
 **🚀 Live Demo:** [lilaaragya.streamlit.app](https://lilaaragya.streamlit.app/)
@@ -7,9 +16,10 @@ This tool provides an interactive, web-based visualization of player telemetry d
 
 ## Features
 - **Dynamic Uploads:** Upload new `.nakama-0` parquet files or `.zip` archives directly from the browser.
-- **Interactive Timeline:** Scrub through a match to see events unfold over time, with speed control settings and +- 10 second
+- **Aggregate View (V1.1):** NEW! Overlay multiple matches at once to see global heatmaps and common player paths across all matches on a map.
+- **Interactive Timeline:** Scrub through an individual match to see events unfold over time, with speed control settings and +- 10 second jumps.
 - **Filtering:** Isolate data by Map, Date, and Match ID.
-- **Heatmaps:** Toggle density heatmaps to identify high-traffic areas and kill zones.
+- **Heatmaps:** Toggle density heatmaps to identify high-traffic areas, kill zones, and "Dead Zones" where no one goes.
 - **Visual Clarity:** Distinct markers for Kills, Deaths, Loot, and Storm deaths. Differentiated paths for Humans vs. Bots.
 
 ## Tech Stack
