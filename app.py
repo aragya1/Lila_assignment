@@ -141,6 +141,17 @@ else:
         is_aggregate = False
         match_df = filtered_df[filtered_df['match_id'] == selected_match].copy()
 
+# Reset playback state when switching matches
+if 'current_match_id' not in st.session_state or st.session_state.current_match_id != selected_match:
+    st.session_state.current_match_id = selected_match
+    st.session_state.playing = False
+    if not is_aggregate and not match_df.empty:
+        st.session_state.playback_time = float(match_df['match_time_sec'].max())
+    else:
+        st.session_state.playback_time = 0.0
+    st.session_state.map_x_range = [0, 1024]
+    st.session_state.map_y_range = [1024, 0]
+
 # --- Match Playback & Stats ---
 st.sidebar.markdown("---")
 st.sidebar.header("⏳ Match Playback")
@@ -258,11 +269,6 @@ show_autofocus = col_b.toggle("🎥 Autofocus", value=False, help="Automatically
 st.sidebar.markdown("---")
 
 # --- Viewport Logic (Persistence & Autofocus) ---
-if 'current_match_id' not in st.session_state or st.session_state.current_match_id != selected_match:
-    st.session_state.current_match_id = selected_match
-    st.session_state.map_x_range = [0, 1024]
-    st.session_state.map_y_range = [1024, 0]
-
 if not is_aggregate and show_autofocus and not match_df.empty:
     # Find most recent positions of all active entities to define the viewport
     recent_human = match_df[(match_df['event'] == 'Position') & (~match_df['is_bot'])].sort_values('ts').groupby('user_id').last()
@@ -531,7 +537,7 @@ with st.expander("View Raw Data for this Match"):
 # Real-time Playback Loop (Executed AFTER rendering)
 if 'playing' in st.session_state and st.session_state.playing:
     if not match_df.empty and not is_aggregate:
-        max_time = float(match_df['match_time_sec'].max())
+        # Use the max_time calculated before filtering at line 178
         if st.session_state.playback_time < max_time:
             # Calculate real-time elapsed since last run
             now = time.time()
